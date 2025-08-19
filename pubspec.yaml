@@ -1,6 +1,6 @@
 name: as_instapicker
 description: An image (and videos) picker similar with Instagram, supports multi picking, crop and aspect ratio. fork of insta_assets_picker
-version: 1.0.3+3
+version: 1.0.4
 repository: https://github.com/AyeshaIftikhar/as_instapicker
 homepage: https://github.com/AyeshaIftikhar/as_instapicker.git
 topics:

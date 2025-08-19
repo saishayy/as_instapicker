@@ -1,4 +1,8 @@
 # Changelog
+
+## 1.0.4
+* 
+
 ## 1.0.3+3
 * Restrict minimum duration for videos (in seconds)
 ## 1.0.3
