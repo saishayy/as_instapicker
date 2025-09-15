@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.0.4+1
+* Upgraded `extended_image` package
+
 ## 1.0.4
 * 
 
