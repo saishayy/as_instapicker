@@ -1,10 +1,13 @@
 # Changelog
 
 ## 1.0.4+1
-* Upgraded `extended_image` package
+* Upgraded `extended_image` package to version 10.0.1
+* Updated dependencies to latest compatible versions
 
 ## 1.0.4
-* 
+* Bug fixes and stability improvements
+* Enhanced error handling for asset selection
+* Performance optimizations
 
 ## 1.0.3+3
 * Restrict minimum duration for videos (in seconds)

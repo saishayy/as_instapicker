@@ -31,50 +31,120 @@ package to handle the picker and a custom version of [image_crop](https://pub.de
 Add this package to the `pubspec.yaml`
 
 ```yaml
-as_instapicker: ^1.0.1
+as_instapicker: ^1.0.4
+```
+
+Then run:
+```bash
+flutter pub get
 ```
 
 ### ‼️ DO NOT SKIP THIS PART
 
 Since this package is a custom delegate of `flutter_wechat_assets_picker` you **MUST** follow this package setup recommendation : [installation guide](https://pub.dev/packages/wechat_assets_picker#preparing-for-use-).
 
+**Required Setup:**
+1. **iOS**: Add photo library usage descriptions to `Info.plist`
+2. **Android**: Add storage permissions to `AndroidManifest.xml`
+3. **Android**: Set `minSdkVersion` to at least 21 in `build.gradle`
+
+See the [complete setup guide](https://pub.dev/packages/wechat_assets_picker#preparing-for-use-) for detailed instructions.
+
 ## 👀 Usage
 
 For more details check out the [example](https://github.com/AyeshaIftikhar/as_instapicker/blob/main/example/lib/main.dart).
 
+### Basic Example
+
 ```dart
 Future<List<AssetEntity>?> callPicker() => InstaAssetPicker.pickAssets(
     context,
+    canCrop: true,
+    restrictVideoDuration: true,
+    restrictVideoDurationMax: 60, // seconds
     pickerConfig: InstaAssetPickerConfig(
-      title: 'Select assets'
+      title: 'Select assets',
+      cropDelegate: InstaCropDelegate(
+        preferredSize: 1080,
+        cropRatios: [1.0, 4/5], // 1:1 and 4:5 aspect ratios
+      ),
     ),
     maxAssets: 10,
-    onCompleted: (Stream<InstaAssetsExportDetails> stream) {
+    onCompleted: (Stream<InstaExportDetails> stream) {
         // TODO : handle crop stream result
         // i.e : display it using a StreamBuilder
         // - in the same page (closeOnComplete=true)
         // - send it to another page (closeOnComplete=false)
         // or use `stream.listen` to handle the data manually in your state manager
-        // - ...
+        stream.listen((details) {
+          print('Progress: ${details.progress * 100}%');
+          if (details.progress == 1.0) {
+            // Export complete!
+            for (var data in details.data) {
+              print('Cropped file: ${data.croppedFile?.path}');
+            }
+          }
+        });
     },
 );
 ```
 
-Fields in `InstaAssetsExportDetails`:
+### Export Stream Details
+
+### Export Stream Details
+
+Fields in `InstaExportDetails`:
 
 | Name           | Type                          | Description                                                           |
 | -------------- | ----------------------------- | --------------------------------------------------------------------- |
-| data           | `List<InstaAssetsExportData>` | Contains the selected assets, crop parameters and possible crop file. |
+| data           | `List<InstaExportData>` | Contains the selected assets, crop parameters and possible crop file. |
 | selectedAssets | `List<AssetEntity>`           | Selected assets without crop                                          |
 | aspectRatio    | `double`                      | Selected aspect ratio (1 or 4/5)                                      |
 | progress       | `double`                      | Progress indicator of the exportation (between 0 and 1)               |
 
-Fields in `InstaAssetsExportData`:
+Fields in `InstaExportData`:
 
 | Name         | Type                  | Description                                                        |
 | ------------ | --------------------- | ------------------------------------------------------------------ |
 | croppedFile  | `File?`               | The cropped file. Can be null if video or if choose to skip crop.  |
-| selectedData | `InstaAssetsCropData` | The selected asset and it's crop parameter (area, scale, ratio...) |
+| selectedData | `InstaCropData` | The selected asset and it's crop parameter (area, scale, ratio...) |
+
+### Advanced Features
+
+#### Custom Action Buttons
+```dart
+InstaAssetPickerConfig(
+  actionsBuilder: (context, theme, height, unselectAll) => [
+    IconButton(
+      icon: Icon(Icons.clear_all),
+      onPressed: unselectAll,
+    ),
+    // Add your custom buttons here
+  ],
+)
+```
+
+#### Video Duration Restrictions
+```dart
+InstaAssetPicker.pickAssets(
+  context,
+  canCrop: true,
+  restrictVideoDuration: true,
+  minVideoDuration: 3, // minimum 3 seconds
+  restrictVideoDurationMax: 60, // maximum 60 seconds
+  onCompleted: (_) {},
+)
+```
+
+#### Disable Cropping
+```dart
+InstaAssetPicker.pickAssets(
+  context,
+  canCrop: false, // disable zoom and crop
+  fit: BoxFit.contain, // show entire asset
+  onCompleted: (_) {},
+)
+```
 
 ### Picker configuration
 
@@ -164,6 +234,43 @@ However, as video processing is a heavy operation it is not handled by this pack
 Which means you must handle it yourself. If you want to preview the video result, you can use the `InstaAssetCropTransform` which will transform the Image or VideoPlayer to fit the selected crop area.
 
 The example app has been updated to support videos (+ camera recording) and shows [how to process the video](https://github.com/AyeshaIftikhar/as_instapicker/tree/main/example/lib/post_provider.dart#L84) using [ffmpeg_kit_flutter](https://pub.dev/packages/ffmpeg_kit_flutter).
+
+#### FFmpeg Helper Methods
+
+The `InstaCropData` class provides helper methods for FFmpeg video processing:
+
+```dart
+stream.listen((details) {
+  for (var data in details.data) {
+    if (data.selectedData.asset.type == AssetType.video) {
+      // Get FFmpeg crop filter: "out_w:out_h:x:y"
+      String? cropFilter = data.selectedData.ffmpegCrop;
+      
+      // Get FFmpeg scale filter: "iw*scale:ih*scale"
+      String? scaleFilter = data.selectedData.ffmpegScale;
+      
+      // Use with ffmpeg_kit_flutter to process video
+      // See example/lib/post_provider.dart for complete implementation
+    }
+  }
+});
+```
+
+## 📚 API Documentation
+
+For comprehensive API documentation, see:
+- [InstaAssetPicker](lib/src/assets_picker.dart) - Main picker API
+- [InstaCropController](lib/src/instacrop_controller.dart) - Crop controller and export
+- [InstaAssetPickerConfig](lib/src/assets_picker.dart) - Configuration options
+- [Example app](example/lib/) - Multiple usage examples
+
+## 🐛 Issues & Contributions
+
+Found a bug or want to contribute? Visit our [issue tracker](https://github.com/AyeshaIftikhar/as_instapicker/issues).
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## ✨ Credit
 

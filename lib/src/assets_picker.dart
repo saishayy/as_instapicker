@@ -8,6 +8,11 @@ const _kGridCount = 4;
 const _kInitializeDelayDuration = Duration(milliseconds: 250);
 const kDefaultInstaCropRatios = [1.0, 4 / 5];
 
+/// Configuration delegate for crop behavior and output quality.
+/// 
+/// Controls how images are cropped and the quality of the exported images.
+/// The [preferredSize] determines the resolution of cropped images,
+/// while [cropRatios] defines the available aspect ratios for cropping.
 class InstaCropDelegate {
   const InstaCropDelegate({
     this.preferredSize = 1080,
@@ -33,6 +38,26 @@ class InstaCropDelegate {
 }
 
 /// Configurations for the [InstaAssetPickerBuilder].
+/// 
+/// This class provides comprehensive configuration options for customizing
+/// the Instagram-like asset picker, including:
+/// - Grid layout and appearance
+/// - Theme customization
+/// - Special item positioning
+/// - Crop settings via [cropDelegate]
+/// - Picker behavior (close on complete, skip crop)
+/// 
+/// Example:
+/// ```dart
+/// InstaAssetPickerConfig(
+///   title: 'Select Photos',
+///   gridCount: 4,
+///   cropDelegate: InstaCropDelegate(
+///     preferredSize: 1080,
+///     cropRatios: [1.0, 4/5],
+///   ),
+/// )
+/// ```
 class InstaAssetPickerConfig {
   const InstaAssetPickerConfig({
     /// [DefaultAssetPickerBuilderDelegate] config
@@ -201,8 +226,34 @@ class InstaAssetPicker {
   }
 
   /// Build a [ThemeData] with the given [themeColor] for the picker.
-  ///
-  /// check `AssetPickerDelegate.themeData()` from flutter_wechat_assets_picker package for more information.
+  /// 
+  /// This is a convenience method that wraps [AssetPicker.themeData] from
+  /// the underlying flutter_wechat_assets_picker package.
+  /// 
+  /// **Parameters:**
+  /// - [themeColor]: The primary color to use for the theme
+  /// - [light]: Whether to generate a light theme (default: false for dark theme)
+  /// 
+  /// **Example:**
+  /// ```dart
+  /// final theme = InstaAssetPicker.themeData(
+  ///   Theme.of(context).primaryColor,
+  ///   light: false,
+  /// );
+  /// 
+  /// InstaAssetPicker.pickAssets(
+  ///   context,
+  ///   pickerConfig: InstaAssetPickerConfig(
+  ///     pickerTheme: theme.copyWith(
+  ///       canvasColor: Colors.black,
+  ///     ),
+  ///   ),
+  ///   onCompleted: (_) {},
+  /// );
+  /// ```
+  /// 
+  /// For more information, check `AssetPickerDelegate.themeData()` from
+  /// flutter_wechat_assets_picker package documentation.
   static ThemeData themeData(Color? themeColor, {bool light = false}) =>
       AssetPicker.themeData(themeColor, light: light);
 
@@ -214,29 +265,70 @@ class InstaAssetPicker {
         'Only images and videos can be shown in the picker for now');
   }
 
-  /// When using `restorableAssetsPicker` function, the picker's state is preserved even after pop
-  ///
-  /// ⚠️ [InstaAssetPicker] and [provider] must be disposed manually
-  ///
-  /// Set [useRootNavigator] to determine
-  /// whether the picker route should use the root [Navigator].
-  ///
-  /// By extending the [AssetPickerPageRoute], users can customize the route
-  /// and use it with the [pageRouteBuilder].
-  ///
-  /// Set [onPermissionDenied] to manually handle the denied permission error.
-  /// The default behavior is to open a [ScaffoldMessenger].
-  ///
-  /// Those arguments are used by [InstaAssetPickerBuilder]
-  ///
-  /// - Set [provider] getter of type [DefaultAssetPickerProvider] to specifies picker options.
-  /// Getter needed to initialize the provider state after permission check.
-  /// This argument is required.
-  ///
-  /// - The [onCompleted] callback is called when the assets selection is confirmed.
-  /// It will as argument a [Stream] with exportation details [InstaAssetsExportDetails].
-  ///
-  /// - Set [pickerConfig] to specifies more optional parameters for the picker.
+  /// Opens an asset picker with restorable state - the picker's state is preserved even after pop.
+  /// 
+  /// This variant is useful when you need to maintain picker state across navigation
+  /// or when the user might return to the picker multiple times in a session.
+  /// 
+  /// **⚠️ Important:** [InstaAssetPicker] instance and [provider] must be disposed manually
+  /// when no longer needed to prevent memory leaks.
+  /// 
+  /// **Key Differences from [pickAssets]:**
+  /// - Requires manual provider instantiation via [provider] getter
+  /// - Maintains crop parameters and scroll position across sessions
+  /// - Caller is responsible for lifecycle management
+  /// 
+  /// **Parameters:**
+  /// - [provider]: Getter function returning a [DefaultAssetPickerProvider] instance.
+  ///   Must be a getter to initialize provider after permission checks.
+  /// - [onCompleted]: Callback receiving a `Stream<InstaExportDetails>` when selection confirmed
+  /// - [pickerConfig]: Configuration for picker appearance and behavior
+  /// - All other parameters match those in [pickAssets]
+  /// 
+  /// **Example:**
+  /// ```dart
+  /// class MyWidget extends StatefulWidget {
+  ///   @override
+  ///   State<MyWidget> createState() => _MyWidgetState();
+  /// }
+  /// 
+  /// class _MyWidgetState extends State<MyWidget> {
+  ///   late final InstaAssetPicker picker;
+  ///   late final DefaultAssetPickerProvider provider;
+  ///   
+  ///   @override
+  ///   void initState() {
+  ///     super.initState();
+  ///     picker = InstaAssetPicker();
+  ///     provider = DefaultAssetPickerProvider(
+  ///       maxAssets: 10,
+  ///       requestType: RequestType.image,
+  ///     );
+  ///   }
+  ///   
+  ///   @override
+  ///   void dispose() {
+  ///     picker.dispose();
+  ///     provider.dispose();
+  ///     super.dispose();
+  ///   }
+  ///   
+  ///   Future<void> openPicker() async {
+  ///     await picker.restorableAssetsPicker(
+  ///       context,
+  ///       provider: () => provider,
+  ///       canCrop: true,
+  ///       restrictVideoDuration: false,
+  ///       restrictVideoDurationMax: 60,
+  ///       onCompleted: (stream) {
+  ///         // Handle export stream
+  ///       },
+  ///     );
+  ///   },
+  /// }
+  /// ```
+  /// 
+  /// Returns a `Future<List<AssetEntity>?>` with selected assets, or null if cancelled.
   Future<List<AssetEntity>?> restorableAssetsPicker(
     BuildContext context, {
     Key? key,
@@ -308,52 +400,73 @@ class InstaAssetPicker {
   }
 
   /// Pick assets with the given arguments.
-  ///
-  /// Set [useRootNavigator] to determine
-  /// whether the picker route should use the root [Navigator].
-  ///
-  /// By extending the [AssetPickerPageRoute], users can customize the route
-  /// and use it with the [pageRouteBuilder].
-  ///
-  /// Set [onPermissionDenied] to manually handle the denied permission error.
-  /// The default behavior is to open a [ScaffoldMessenger].
-  ///
-  /// Those arguments are used by [InstaAssetPickerBuilder]
-  ///
-  /// - The [onCompleted] callback is called when the assets selection is confirmed.
-  /// It will as argument a [Stream] with exportation details [InstaAssetsExportDetails].
-  ///
-  /// - Set [pickerConfig] to specifies more optional parameters for the picker.
-  ///
-  /// Those arguments are used by [DefaultAssetPickerProvider]
-  ///
-  /// - Set [selectedAssets] to specifies which assets to preselect when the
-  /// picker is opened.
-  ///
-  /// - Set [maxAssets] to specifies the maximum of assets that can be selected
-  /// Defaults to [defaultMaxAssetsCount].
-  ///
-  /// - Set [pageSize] to specifies the quantity of assets to display in a single page.
-  /// Defaults to [defaultAssetsPerPage].
-  ///
-  /// - Set [pathThumbnailSize] to specifies the album thumbnail size in the albums list
-  /// Defaults to [defaultPathThumbnailSize].
-  ///
-  /// - Set [sortPathDelegate] to specifies the order of the assets
-  /// Defaults to [SortPathDelegate.common].
-  ///
-  /// - Set [sortPathsByModifiedDate] to specifies
-  /// whether the modified_date can be used in the sort delegate.
-  /// Defaults to `false`.
-  ///
-  /// - Set [filterOptions] to specifies the rules to include/exclude assets from the list
-  ///
-  /// - Set [initializeDelayDuration] to specifies the delay before loading the assets
-  /// Defaults to [_kInitializeDelayDuration].
-  ///
-  /// - Set [requestType] to specifies which type of asset to show in the picker.
-  /// Defaults is [RequestType.common]. Only [RequestType.image], [RequestType.common]
-  /// and [RequestType.common] are supported.
+  /// 
+  /// This is the main entry point for using the Instagram-like asset picker.
+  /// 
+  /// **Navigation Configuration:**
+  /// - [useRootNavigator]: Whether the picker route should use the root Navigator (default: true)
+  /// - [pageRouteBuilder]: Custom page route builder for transition animations
+  /// - [onPermissionDenied]: Custom handler for permission denial errors
+  /// 
+  /// **Picker Configuration ([InstaAssetPickerBuilder] parameters):**
+  /// - [onCompleted]: Callback invoked when selection is confirmed, receives a `Stream<InstaExportDetails>`
+  /// - [pickerConfig]: Configuration object for customizing picker behavior and appearance
+  /// - [canCrop]: Enable/disable crop functionality for selected assets
+  /// - [minVideoDuration]: Minimum video duration in seconds (optional)
+  /// - [restrictVideoDuration]: Whether to enforce video duration restrictions
+  /// - [restrictVideoDurationMax]: Maximum video duration in seconds when restrictions enabled
+  /// - [fit]: BoxFit for asset preview (e.g., BoxFit.contain, BoxFit.cover)
+  /// - [fontFamily]: Custom font family for picker text
+  /// - [actionTextColor]: Color for action buttons and text
+  /// - [indicatorTextStyle]: TextStyle for selection indicator numbers
+  /// - [indicatorColor]: Background color for selection indicators
+  /// - [confirmIcon]: Custom widget to replace default confirm button text
+  /// - [showSelectedCount]: Display count of selected assets in UI
+  /// - [onAssetsUpdated]: Callback triggered when assets are selected/deselected
+  /// 
+  /// **Provider Configuration ([DefaultAssetPickerProvider] parameters):**
+  /// - [selectedAssets]: Pre-selected assets when picker opens
+  /// - [maxAssets]: Maximum number of selectable assets (default: 9)
+  /// - [pageSize]: Number of assets to load per page (default: 80)
+  /// - [pathThumbnailSize]: Thumbnail size for album list
+  /// - [sortPathDelegate]: Custom sorting for asset paths/albums
+  /// - [sortPathsByModifiedDate]: Use modified date for sorting
+  /// - [filterOptions]: PMFilter for including/excluding specific assets
+  /// - [initializeDelayDuration]: Delay before loading assets (default: 250ms)
+  /// - [requestType]: Asset type to show (RequestType.image, .video, or .common)
+  /// 
+  /// Returns a `Future<List<AssetEntity>?>` with selected assets, or null if cancelled.
+  /// 
+  /// **Example:**
+  /// ```dart
+  /// final assets = await InstaAssetPicker.pickAssets(
+  ///   context,
+  ///   canCrop: true,
+  ///   restrictVideoDuration: true,
+  ///   restrictVideoDurationMax: 60,
+  ///   maxAssets: 10,
+  ///   pickerConfig: InstaAssetPickerConfig(
+  ///     title: 'Select Photos',
+  ///     cropDelegate: InstaCropDelegate(
+  ///       cropRatios: [1.0, 4/5],
+  ///     ),
+  ///   ),
+  ///   onCompleted: (stream) {
+  ///     stream.listen((details) {
+  ///       print('Progress: ${details.progress}');
+  ///       if (details.progress == 1.0) {
+  ///         // Export complete
+  ///         for (var data in details.data) {
+  ///           print('Cropped file: ${data.croppedFile?.path}');
+  ///         }
+  ///       }
+  ///     });
+  ///   },
+  /// );
+  /// ```
+  /// 
+  /// **Note:** Only [RequestType.image], [RequestType.video], and [RequestType.common]
+  /// are supported. Other types will trigger an assertion error.
   static Future<List<AssetEntity>?> pickAssets(
     BuildContext context, {
     Key? key,

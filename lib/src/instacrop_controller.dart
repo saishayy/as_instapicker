@@ -14,6 +14,10 @@ class InstaCropSingleton {
   static List<InstaCropData> cropParameters = [];
 }
 
+/// Contains the export result for a single asset.
+/// 
+/// Includes both the cropped file (if applicable) and the crop parameters
+/// used during the export process.
 class InstaExportData {
   const InstaExportData({
     required this.croppedFile,
@@ -28,7 +32,21 @@ class InstaExportData {
   final InstaCropData selectedData;
 }
 
-/// Contains all the parameters of the exportation
+/// Contains all the parameters and results of the export operation.
+/// 
+/// This class provides:
+/// - [data]: List of exported assets with crop information
+/// - [selectedAssets]: Original selected assets for reference
+/// - [aspectRatio]: The aspect ratio used for cropping
+/// - [progress]: Export progress from 0.0 (started) to 1.0 (completed)
+/// 
+/// Typically received as a stream during the export process:
+/// ```dart
+/// stream.listen((details) {
+///   print('Exported ${details.data.length} assets');
+///   print('Progress: ${(details.progress * 100).toInt()}%');
+/// });
+/// ```
 class InstaExportDetails {
   /// The export result, containing the selected assets, crop parameters
   /// and possible crop file.
@@ -51,7 +69,16 @@ class InstaExportDetails {
   });
 }
 
-/// The crop parameters state, can be used at exportation or to load the crop view
+/// The crop parameters state, used during exportation or when loading the crop view.
+/// 
+/// Contains the complete crop state for an asset including:
+/// - The [asset] being cropped
+/// - [cropParam]: Internal crop parameters from instacrop library
+/// - [scale]: The zoom/scale factor applied
+/// - [area]: The visible crop area as a rectangle
+/// 
+/// This class also provides FFmpeg-compatible filter strings via
+/// [ffmpegCrop] and [ffmpegScale] for video processing.
 class InstaCropData {
   final AssetEntity asset;
   final CropInternal? cropParam;
@@ -101,7 +128,29 @@ class InstaCropData {
   }
 }
 
-/// The controller that handles the exportation and save the state of the selected assets crop parameters
+/// The controller that handles the exportation and saves the state of selected assets crop parameters.
+/// 
+/// This controller manages:
+/// - Crop ratio selection and switching
+/// - Crop parameters storage (in memory or cached)
+/// - Asset preview state
+/// - Export stream generation with progress tracking
+/// 
+/// The [keepMemory] parameter determines whether crop parameters persist
+/// across picker sessions using [InstaCropSingleton].
+/// 
+/// Example:
+/// ```dart
+/// final controller = InstaCropController(
+///   true, // keepMemory
+///   InstaCropDelegate(cropRatios: [1.0, 4/5]),
+/// );
+/// 
+/// // Export cropped files with progress tracking
+/// controller.exportCropFiles(selectedAssets).listen((details) {
+///   print('Progress: ${details.progress}');
+/// });
+/// ```
 class InstaCropController {
   InstaCropController(this.keepMemory, this.cropDelegate)
       : cropRatioIndex = ValueNotifier<int>(0);
@@ -126,7 +175,7 @@ class InstaCropController {
   /// is open with [InstaAssetPicker.restorableAssetsPicker]
   final bool keepMemory;
 
-  dispose() {
+  void dispose() {
     clear();
     isCropViewReady.dispose();
     cropRatioIndex.dispose();
@@ -216,14 +265,19 @@ class InstaCropController {
   }
 
   /// Apply all the crop parameters to the list of [selectedAssets]
-  /// and returns the exportation as a [Stream]
+  /// and returns the exportation as a [Stream].
+  /// 
+  /// The [skipCrop] parameter allows skipping the crop operation for all assets.
+  /// This is useful when you want to handle cropping manually or skip it entirely.
+  /// 
+  /// Returns a [Stream] of [InstaExportDetails] with progress updates from 0.0 to 1.0.
   Stream<InstaExportDetails> exportCropFiles(
     List<AssetEntity> selectedAssets, {
     bool skipCrop = false,
   }) async* {
     final List<InstaExportData> data = [];
 
-    /// Returns the [InstaAssetsExportDetails] with given progress value [p]
+    /// Returns the [InstaExportDetails] with given progress value [p]
     InstaExportDetails makeDetail(double p) => InstaExportDetails(
           data: data,
           selectedAssets: selectedAssets,
@@ -235,7 +289,7 @@ class InstaCropController {
     yield makeDetail(0);
     final List<InstaCropData> list = cropParameters;
 
-    final step = 1 / list.length;
+    final double step = 1 / list.length;
 
     for (int i = 0; i < list.length; i++) {
       final asset = list[i].asset;
